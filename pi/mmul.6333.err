@@ -1,0 +1,7 @@
+mv: cannot stat ‘result_matrix.txt’: No such file or directory
+mv: cannot stat ‘result_matrix.txt’: No such file or directory
+mv: cannot stat ‘result_matrix.txt’: No such file or directory
+diff: pi_seq.txt: No such file or directory
+diff: pi_pth.txt: No such file or directory
+diff: pi_seq.txt: No such file or directory
+diff: pi_omp.txt: No such file or directory

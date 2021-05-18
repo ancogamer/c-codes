@@ -1,0 +1,6 @@
+*** SEQUENTIAL ***
+pi with 1000000000 steps is 3.141592654 in 16.360081 seconds
+*** PTHREAD ***
+pi with 1000000000 steps is 3.141592654 in 0.490032 seconds
+*** OPENMP ***
+pi with 1000000000 steps is 3.141592654 in 0.524685 seconds
