@@ -9,7 +9,7 @@
 
 #define ITER_MAX 3000 // number of maximum iterations
 #define CONV_THRESHOLD 1.0e-5f // threshold of convergence
-// max of treads
+int itensPerThread;
 
 // matrix to be solved
 double **grid;
@@ -39,7 +39,6 @@ double absolute(double num){
 void initialize_grid(){
     // seed for random generator
     srand(10);
-
     int linf = size / 2;
     int lsup = linf + size / 10;
     for (int i = 0; i < size; i++){
@@ -75,12 +74,11 @@ void save_grid(){
 }
 void *allocateMemory(void *param)
 {      
-    
-    int  i=*(int *) param;
-    grid[i] = (double *) malloc(size * sizeof(double));
-    new_grid[i] = (double *) malloc(size * sizeof(double));
-    pthread_exit(NULL);
-
+    int  i =*(int *) param;
+    for(int i=0;i<size;i++){
+        grid[i] = (double *) malloc(size * sizeof(double));
+        new_grid[i] = (double *) malloc(size * sizeof(double));
+    }
 }
 int main(int argc, char *argv[]){
 
@@ -96,33 +94,29 @@ int main(int argc, char *argv[]){
 
     size = atoi(argv[1]);
 
-    int THREADS_MAX=atoi(argv[2]);
+    int num_threads=atoi(argv[2]);
 
     // allocate memory to the grid (matrix)
     // creating a array of pthread_t (struct)
-    pthread_t threads[THREADS_MAX];
+    pthread_t threads[num_threads];
 
     grid = (double **) malloc(size * sizeof(double *));
     new_grid = (double **) malloc(size * sizeof(double *)); 
     // creating a array to pass args to the threads
-    int thread_args[THREADS_MAX];
-    int idx=0;
+   
 
-    pthread_create(&threads[0], NULL, allocateMemory, (void *) &thread_args[0]);
+    int itensPerThread=size/num_threads;
+    int thread_args[num_threads];
 
-    int numberOfBlocksPerThreads=size/THREADS_MAX;
-    int aux;
-    for (idx;idx<THREADS_MAX;idx++){
-        for(int j = 0; j <numberOfBlocksPerThreads; j++){
-            aux=idx+j;
-            pthread_create(&threads[idx], NULL, allocateMemory, (void *) &aux);
-        }
+    for (int idx=0;idx<num_threads;idx++){
+        pthread_create(&threads[idx], NULL, allocateMemory, (void *) &itensPerThread+idx);
     }   
     
-    
-    for (int i;i<THREADS_MAX; i++){
-       pthread_join(threads[i], NULL);
+   // for(int i = 0; i < size; i++){
+    for(int i = 0; i <num_threads; i++){
+        pthread_join(threads[i], NULL);
     }
+
 
     // set grid initial conditions
     initialize_grid();
