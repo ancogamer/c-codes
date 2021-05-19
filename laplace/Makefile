@@ -7,7 +7,6 @@ sequential:
 
 pthread:
 	$(CC) laplace_pth.c -o laplace_pth -lpthread 
-	./laplace_pth 10 2
 openmp:
 	$(CC) laplace_omp.c -o laplace_omp -fopenmp
 	#/usr/local/opt/llvm/bin/clang pi_omp.c -o pi_omp -fopenmp -L/usr/local/opt/llvm/lib

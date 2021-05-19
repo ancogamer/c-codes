@@ -9,7 +9,9 @@
 
 #define ITER_MAX 3000 // number of maximum iterations
 #define CONV_THRESHOLD 1.0e-5f // threshold of convergence
+
 int itensPerThread;
+int num_threads;
 
 // matrix to be solved
 double **grid;
@@ -72,14 +74,47 @@ void save_grid(){
 
     fclose(file);
 }
-void *allocateMemory(void *param)
-{      
-    int  i =*(int *) param;
-    for(int i=0;i<size;i++){
+
+void *allocateMemory(void *args){     
+    int id = *(int *) args;
+   
+    int begin = id * itensPerThread;
+    int end = begin + itensPerThread;
+    
+    if( id == num_threads-1)
+       end = size; 
+
+    for(int i=begin;i<end;i++){
         grid[i] = (double *) malloc(size * sizeof(double));
         new_grid[i] = (double *) malloc(size * sizeof(double));
     }
+
 }
+double err = 1.0;
+
+void *calcGrid(void *args){  
+    // thread id
+    int id = *(int *) args;
+    // calcute begin and end step of the thread
+    int begin = id * itensPerThread;
+    int end = begin + itensPerThread;
+
+    if( id == num_threads-1 )
+        end = size-1; 
+   
+    if (id == 0 )
+        begin=1;
+    
+    for( int i = begin; i < end; i++) {
+        for(int j = begin; j < end; j++) {
+            new_grid[i][j] = 0.25 * (grid[i][j+1] + grid[i][j-1] +
+                                     grid[i-1][j] + grid[i+1][j]);
+            err = max(err, absolute(new_grid[i][j] - grid[i][j]));
+        }
+    }
+
+}
+
 int main(int argc, char *argv[]){
 
     if(argc < 2){
@@ -94,7 +129,7 @@ int main(int argc, char *argv[]){
 
     size = atoi(argv[1]);
 
-    int num_threads=atoi(argv[2]);
+    num_threads=atoi(argv[2]);
 
     // allocate memory to the grid (matrix)
     // creating a array of pthread_t (struct)
@@ -102,17 +137,18 @@ int main(int argc, char *argv[]){
 
     grid = (double **) malloc(size * sizeof(double *));
     new_grid = (double **) malloc(size * sizeof(double *)); 
+
     // creating a array to pass args to the threads
-   
+    itensPerThread=size/num_threads;
 
-    int itensPerThread=size/num_threads;
     int thread_args[num_threads];
-
-    for (int idx=0;idx<num_threads;idx++){
-        pthread_create(&threads[idx], NULL, allocateMemory, (void *) &itensPerThread+idx);
+    
+    for (int id=0;id<num_threads;id++){
+        thread_args[id]=id;
+        pthread_create(&threads[id], NULL, allocateMemory, (void *) &thread_args[id]);
     }   
     
-   // for(int i = 0; i < size; i++){
+    // for(int i = 0; i < size; i++){
     for(int i = 0; i <num_threads; i++){
         pthread_join(threads[i], NULL);
     }
@@ -121,7 +157,6 @@ int main(int argc, char *argv[]){
     // set grid initial conditions
     initialize_grid();
 
-    double err = 1.0;
     int iter = 0;
 
     printf("Jacobi relaxation calculation: %d x %d grid\n", size, size);
@@ -135,16 +170,15 @@ int main(int argc, char *argv[]){
     while ( err > CONV_THRESHOLD && iter <= ITER_MAX ) {
 
         err = 0.0;
-
+        
+        
         // calculates the Laplace equation to determine each cell's next value
-        for( int i = 1; i < size-1; i++) {
-            for(int j = 1; j < size-1; j++) {
-
-                new_grid[i][j] = 0.25 * (grid[i][j+1] + grid[i][j-1] +
-                                         grid[i-1][j] + grid[i+1][j]);
-
-                err = max(err, absolute(new_grid[i][j] - grid[i][j]));
-            }
+        for (int i=0;i<num_threads;i++){
+            thread_args[i]=i;
+            pthread_create(&threads[i], NULL, calcGrid, (void *) &thread_args[i]);
+        }  
+        for(int i = 0; i <num_threads; i++){
+            pthread_join(threads[i], NULL);
         }
 
         // copie the next values into the working array for the next iteration
