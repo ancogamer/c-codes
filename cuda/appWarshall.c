@@ -28,14 +28,44 @@ void warshallCPU(int* A, int* F, unsigned n)
 			}
 		}
 }
-
-
-void processamentoCPU(int *A, unsigned n)
+__global__ 
+void warshallGPU(int* A, int* F, unsigned n)
 {
+
+	checkCuda( cudaEventCreate(&start) );
+	checkCuda( cudaEventCreate(&stop) );
+	checkCuda( cudaEventRecord(start, 0) );
+
+		for(int k = 0; k < n; k++){
+			for(int lin = 0; lin < n; lin ++){
+				for(int col = 0; col < n; col ++){
+						if(A[k * n + col] == 1 && A[lin * n + k] == 1)
+							F[lin * n + col] = 1;
+				}
+			}
+		}
+
+}
+inline cudaError_t checkCuda(cudaError_t result)
+{
+  if (result != cudaSuccess) {
+    fprintf(stderr, "CUDA Runtime Error: %s\n", cudaGetErrorString(result));
+    assert(result == cudaSuccess);
+  }
+  return result;
+}
+
+void processamentoGPU(int *A, unsigned n){
+
+	//Aloca espaço na CPU para o resultado
 	int* F = (int*) malloc( sizeof(int) * n * n);
 
-  double tempoGasto;
+	//
+
+ 	double tempoGasto;
 	clock_t start = clock();
+
+ 	
 
 	warshallCPU(A, F, n);
 
@@ -44,6 +74,18 @@ void processamentoCPU(int *A, unsigned n)
 	tempoGasto = 1000 *  (stop - start) / (float) CLOCKS_PER_SEC;
 	printf("Tempo de execução da CPU: %f ms\n", tempoGasto );
 
+	free(F);
+
+}
+void processamentoCPU(int *A, unsigned n)
+{
+	int* F = (int*) malloc( sizeof(int) * n * n);
+  	double tempoGasto;
+	clock_t start = clock();
+	warshallCPU(A, F, n);
+	clock_t stop = clock();
+	tempoGasto = 1000 *  (stop - start) / (float) CLOCKS_PER_SEC;
+	printf("Tempo de execução da CPU: %f ms\n", tempoGasto );
 	free(F);
 }
 
@@ -55,19 +97,28 @@ void mainWarshall()
 	int *A = (int*) malloc(byteNumber);
 
 	inicializaMatriz(A, QTD_ELEMENTOS);
+
+	processamentoGPU(A, QTD_ELEMENTOS);
 	processamentoCPU(A, QTD_ELEMENTOS);
 
-  int soma = 0;
-  for (int i=0; i< QTD_ELEMENTOS; i++)
-    for (int j=0; j< QTD_ELEMENTOS; j++)
-      soma += A[i * QTD_ELEMENTOS + j];
-  printf("Total de arestas: %d \n ",soma);
+  	int soma = 0;
+  	for (int i=0; i< QTD_ELEMENTOS; i++)
+    	for (int j=0; j< QTD_ELEMENTOS; j++)
+      		soma += A[i * QTD_ELEMENTOS + j];
+  	printf("Total de arestas: %d \n ",soma);
   
 	free(A);
 }
 
 int main(void)
 {
+
+	cudaSetDevice(0);
+	cudaDeviceProp prop;
+	cudaGetDeviceProperties(&prop,0);
+	printf("Número de SM: %d\n",prop.multiProcessorCount);
+	printf("Modelo GPU: %s\n",prop.name);
+
 	mainWarshall();
 	return 0;
 }
