@@ -51,33 +51,59 @@ void ordem(struct Notas* x,int* count){
     }
 }
 
-int main(int argc, char *argv[]){
-	int N; // qtd vagas  
+int main(int argc, char** argv){	
+    int N; // qtd vagas  
 	int K; // qtd pessoas per vaga
     int C; // numeros de candidatos que concorrem à vaga. 
  
     
-    scanf("%d",&N);
-    float result[N];
+
+    FILE *fp;
+    char **buf;
+    char b;
+ 
+    fp = fopen(argv[1], "r");
+    int i =0;
     
-    for (int i=0; i<N;i++){
-        scanf("%d %d",&K,&C);
-        Notas* arv = criaNota(); 
-        NotasArray= (float*) malloc(C * sizeof(float));
-        float notas; // notas dos candidatos; 
-        for (int j=0;j<C;j++){
-            scanf("%f",&notas);
-            insereArvore(&arv,notas);
-        } 
-        int count = 0;
-        ordem(arv,&count);    
-        // em questão, posição no array é = K-1, pq começa em array começa em 0.
-        //printf("%.2f\n",NotasArray[(K-1)*C]);
-        result[i]=NotasArray[(K-1)*C];
-        free(NotasArray);
-        free(arv);
+    float **result;
+    
+    Notas* arv = criaNota(); 
+    
+    while((b = fgetc(fp)) != EOF){
+        buf=&b;
+        if ((buf[i]!="\n")&&(i-1!=0)){
+            printf("to aqui");
+            if (i==1){
+                K=buf[i];
+            }
+            //scanf("%d %d",&K,&C);
+            NotasArray= (float*) malloc(C * sizeof(float));
+            printf("to aqui2"); 
+            
+            float notas=b; // notas dos candidatos; 
+            //for (int j=0;j<C;j++){
+                scanf("%f",&notas);
+                insereArvore(&arv,notas);
+            //} 
+            printf("to aqui3"); 
+               
+            // em questão, posição no array é = K-1, pq começa em array começa em 0.
+            //printf("%.2f\n",NotasArray[(K-1)*C]);
+        }else{
+            int count = 0;
+            ordem(arv,&count); 
+            printf("to aqui1");
+            result[i]=&NotasArray[(i-2)*K];
+            free(NotasArray);
+            free(arv);
+            i=0;
+        }
     }
-    for (int i=0; i<N;i++){
+    
+    
+    N=buf[0];
+
+    for (int i=0; i<N-1;i++){
         printf("%.2f\n",result[i]);
     } 
     
