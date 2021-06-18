@@ -1,10 +1,11 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
  
-#define QTD_ELEMENTOS 2048
-#define NUM_THREADS_BLOCK_X 32
-#define NUM_THREADS_BLOCK_Y 32
+#define QTD_ELEMENTOS 1024
+#define NUM_THREADS_BLOCK_X 16
+#define NUM_THREADS_BLOCK_Y 16
  
 void inicializaMatriz(int *data, unsigned size)
 {
@@ -38,8 +39,7 @@ void warshallCPU(int* fechoMatriz, unsigned n)
         }                   
     }
 }
-void imprimeSoma(int* data, unsigned n)
-{
+void imprimeSoma(int* data, unsigned n){
     double soma = 0;
     for (int i=0; i < n; i++) {
         for (int j=0; j < n; j++){
@@ -49,16 +49,32 @@ void imprimeSoma(int* data, unsigned n)
     printf("A soma é %f\n",soma);
 }
  
-__global__ void warshallGPU(int *A, int k, unsigned n)
-{
+__global__ void warshallGPU1(int *A,int k, unsigned n){
+
     int c = blockIdx.x * blockDim.x + threadIdx.x;
     int l = blockIdx.y * blockDim.y + threadIdx.y;
-    // não tenho numero da interação.
-    if(A[k * n + c] == 1 && A[l * n + k] == 1)
-        A[l * n + c] = 1;      
+  
+    __shared__ int ladA[NUM_THREADS_BLOCK_Y][NUM_THREADS_BLOCK_X];
+    __shared__ int ladB[NUM_THREADS_BLOCK_Y][NUM_THREADS_BLOCK_X];
+    
+    int thIDx = blockIdx.x * blockDim.x + threadIdx.x;
+    int thIDy = k * blockIdx.y * blockDim.y + threadIdx.y;
+
+    ladA[threadIdx.y][threadIdx.x] = A[thIDy * n + thIDx];
+ 
+    thIDx = k * blockIdx.x * blockDim.x + threadIdx.x;
+    thIDy = blockIdx.y * blockDim.y + threadIdx.y;   
+    ladB[threadIdx.y][threadIdx.x] = A[thIDy * n + thIDx];
+
+    __syncthreads();
+ 
+    for(int m=0;m<blockDim.x;m++){
+      if(ladA[m][threadIdx.x] == 1 && ladB[threadIdx.y][m] == 1)
+        A[l * n + c] = 1;
+      __syncthreads();
+    } 
  
 }
- 
 void processamentoGPU(int *A ,unsigned n){
     //Aloca espaço na CPU para o resultado
     int matrizSize = sizeof(int) * n * n;
@@ -79,25 +95,26 @@ void processamentoGPU(int *A ,unsigned n){
         checkCuda( cudaEventCreate(&stop) );
         checkCuda( cudaEventRecord(start, 0) );
  
-    for (int k =0; k<n;k++){
-        warshallGPU<<<grid,bloco>>>(gA,k, n);
+    for (int k=0;k<bloco.x;k++){
+        warshallGPU1<<<grid,bloco>>>(gA,0, n);
         cudaDeviceSynchronize();
         cudaError_t error = cudaGetLastError();
         checkCuda( error );
     }
-    
+   
+
     //Obtém o erro de lançamento de kernel
     checkCuda( cudaEventRecord(stop, 0) );
     checkCuda( cudaEventSynchronize(stop) );
     checkCuda( cudaEventElapsedTime(&gpu_time, start, stop) );
     //-------------------------------------------------------------
-    cudaMemcpy(A, gA, matrizSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(F, gA, matrizSize, cudaMemcpyDeviceToHost);
     cudaFree(gA);
     //-------------------------------------------------------------
     //Imprime o resultado
-    imprimeSoma(A, n);
-    free(A);
-        printf("Tempo de Execução na GPU: %.4f ms ", gpu_time);
+    imprimeSoma(F, n);
+    free(F);
+       printf("Tempo de Execução na GPU: %.4f ms \n", gpu_time);
 }
  
 void processamentoCPU(int *A, unsigned n)
@@ -124,19 +141,20 @@ void mainWarshall()
  
     inicializaMatriz(A, QTD_ELEMENTOS);
     
-    processamentoCPU(A, QTD_ELEMENTOS);
-    //processamentoGPU(A, QTD_ELEMENTOS);
+    //processamentoCPU(A, QTD_ELEMENTOS);
+    processamentoGPU(A, QTD_ELEMENTOS);
   
     free(A);
 }
  
 int main(void)
 {
+ 
     cudaSetDevice(0);
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop,0);
 
-    printf("Modelo Processador%s",system("cat /proc/cpuinfo|grep 'model name'|head -1"));
+    system("cat /proc/cpuinfo|grep 'model name'|head -1");
     printf("Modelo do Device: %s\n",prop.name);
     printf("Número de SMs: %d\n",prop.multiProcessorCount);
     printf("Número de Regs por SM: %d K\n",prop.regsPerMultiprocessor >> 10);
@@ -145,7 +163,7 @@ int main(void)
     printf("Memória compartilhada por Bloco: %d KB\n",prop.sharedMemPerBlock  >> 10);
     printf("Memória Global: %d GB\n",prop.totalGlobalMem  >> 10  >> 10  >> 10 );
     printf("Memória Constante: %d KB\n",prop.totalConstMem  >> 10);
- 
+    
     mainWarshall();
     return 0;
 }
