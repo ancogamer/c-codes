@@ -2,10 +2,10 @@
 #include <time.h>
 #include <assert.h>
  
-#define QTD_ELEMENTOS 3072
+#define QTD_ELEMENTOS 1024
 
-#define NUM_THREADS_BLOCK_X 16
-#define NUM_THREADS_BLOCK_Y 16
+#define NUM_THREADS_BLOCK_X 32
+#define NUM_THREADS_BLOCK_Y 32
  
 void inicializaMatriz(int *data, unsigned size)
 {
@@ -39,14 +39,16 @@ void warshallCPU(int* fechoMatriz, unsigned n)
         }                   
     }
 }
-void imprimeSoma(int* data, unsigned n){
+void imprimeSoma(int *data, unsigned n)
+{
     double soma = 0;
     for (int i=0; i < n; i++) {
         for (int j=0; j < n; j++){
-            soma += data[i * n + j];        
-        }        
+            soma += data[i * n + j];  
+        }     
     } 
-    printf("A soma é %f\n",soma);
+
+    printf("A soma é %d\n",soma);
 }
  
 __global__ void warshallGPU1(int *A,int k, unsigned n){
@@ -91,7 +93,7 @@ void processamentoGPU(int *A ,unsigned n){
     //printf("block size %d %d \n",NUM_THREADS_BLOCK_X,NUM_THREADS_BLOCK_Y);
 
     dim3 grid = dim3(ceil (n/ (float) NUM_THREADS_BLOCK_X), ceil (n/ (float) NUM_THREADS_BLOCK_Y));
-   // printf("grid size %d %d \n",NUM_THREADS_BLOCK_X,NUM_THREADS_BLOCK_Y);
+    //printf("grid size %d %d \n",NUM_THREADS_BLOCK_X,NUM_THREADS_BLOCK_Y);
 
     
     cudaEvent_t start, stop;
@@ -100,15 +102,12 @@ void processamentoGPU(int *A ,unsigned n){
         checkCuda( cudaEventCreate(&stop) );
         checkCuda( cudaEventRecord(start, 0) );
  
-  
-        warshallGPU1<<<grid,bloco>>>(gA,0, n);
-        warshallGPU1<<<grid,bloco>>>(gA,0, n);
-        
+    for(int k = 0; k < (n / NUM_THREADS_BLOCK_X); k++){
+        warshallGPU1<<<grid,bloco>>>(gA,k, n);
+    }
         cudaDeviceSynchronize();
         cudaError_t error = cudaGetLastError();
         checkCuda( error );
-  
-  
 
     //Obtém o erro de lançamento de kernel
     checkCuda( cudaEventRecord(stop, 0) );
