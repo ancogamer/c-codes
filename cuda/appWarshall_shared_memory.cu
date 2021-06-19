@@ -1,9 +1,9 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
  
-#define QTD_ELEMENTOS 1024
+#define QTD_ELEMENTOS 3072
+
 #define NUM_THREADS_BLOCK_X 16
 #define NUM_THREADS_BLOCK_Y 16
  
@@ -86,22 +86,29 @@ void processamentoGPU(int *A ,unsigned n){
     //-------------------------------------
     cudaMemcpy(gA, A, matrizSize, cudaMemcpyHostToDevice);
  
-    dim3 bloco = dim3(NUM_THREADS_BLOCK_X, NUM_THREADS_BLOCK_Y);
+    dim3 bloco = dim3(NUM_THREADS_BLOCK_X, NUM_THREADS_BLOCK_Y); 
+    
+    //printf("block size %d %d \n",NUM_THREADS_BLOCK_X,NUM_THREADS_BLOCK_Y);
+
     dim3 grid = dim3(ceil (n/ (float) NUM_THREADS_BLOCK_X), ceil (n/ (float) NUM_THREADS_BLOCK_Y));
- 
+   // printf("grid size %d %d \n",NUM_THREADS_BLOCK_X,NUM_THREADS_BLOCK_Y);
+
+    
     cudaEvent_t start, stop;
     float gpu_time = 0.0f;
         checkCuda( cudaEventCreate(&start) );
         checkCuda( cudaEventCreate(&stop) );
         checkCuda( cudaEventRecord(start, 0) );
  
-    for (int k=0;k<bloco.x;k++){
+  
         warshallGPU1<<<grid,bloco>>>(gA,0, n);
+        warshallGPU1<<<grid,bloco>>>(gA,0, n);
+        
         cudaDeviceSynchronize();
         cudaError_t error = cudaGetLastError();
         checkCuda( error );
-    }
-   
+  
+  
 
     //Obtém o erro de lançamento de kernel
     checkCuda( cudaEventRecord(stop, 0) );
@@ -112,9 +119,10 @@ void processamentoGPU(int *A ,unsigned n){
     cudaFree(gA);
     //-------------------------------------------------------------
     //Imprime o resultado
+    printf("Tempo de Execução na GPU: %.4f ms \n", gpu_time);
     imprimeSoma(F, n);
     free(F);
-       printf("Tempo de Execução na GPU: %.4f ms \n", gpu_time);
+       
 }
  
 void processamentoCPU(int *A, unsigned n)
@@ -141,7 +149,7 @@ void mainWarshall()
  
     inicializaMatriz(A, QTD_ELEMENTOS);
     
-    //processamentoCPU(A, QTD_ELEMENTOS);
+    processamentoCPU(A, QTD_ELEMENTOS);
     processamentoGPU(A, QTD_ELEMENTOS);
   
     free(A);
