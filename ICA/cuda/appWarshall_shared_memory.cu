@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
- 
-#define QTD_ELEMENTOS 1024
+#include <cuda_runtime.h>
+
+#define QTD_ELEMENTOS 2048
 
 #define NUM_THREADS_BLOCK_X 32
 #define NUM_THREADS_BLOCK_Y 32
@@ -52,30 +53,33 @@ void imprimeSoma(int *data, unsigned n)
 }
  
 __global__ void warshallGPU1(int *A,int k, unsigned n){
+ int j = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
 
-    int c = blockIdx.x * blockDim.x + threadIdx.x;
-    int l = blockIdx.y * blockDim.y + threadIdx.y;
-  
-    __shared__ int ladA[NUM_THREADS_BLOCK_Y][NUM_THREADS_BLOCK_X];
-    __shared__ int ladB[NUM_THREADS_BLOCK_Y][NUM_THREADS_BLOCK_X];
+    __shared__ int ladrilhoA[NUM_THREADS_BLOCK_Y][NUM_THREADS_BLOCK_X];
+    __shared__ int ladrilhoB[NUM_THREADS_BLOCK_Y][NUM_THREADS_BLOCK_X];
+
+    int tidX;
+    int tidY;
     
-    int thIDx = blockIdx.x * blockDim.x + threadIdx.x;
-    int thIDy = k * blockIdx.y * blockDim.y + threadIdx.y;
+    tidX = blockIdx.x * blockDim.x + threadIdx.x;
+    tidY = k * blockDim.y + threadIdx.y;
+    ladrilhoA[threadIdx.y][threadIdx.x] = A[tidY * n + tidX];
 
-    ladA[threadIdx.y][threadIdx.x] = A[thIDy * n + thIDx];
- 
-    thIDx = k * blockIdx.x * blockDim.x + threadIdx.x;
-    thIDy = blockIdx.y * blockDim.y + threadIdx.y;   
-    ladB[threadIdx.y][threadIdx.x] = A[thIDy * n + thIDx];
+    tidX = k * blockDim.x + threadIdx.x;
+    tidY = blockIdx.y * blockDim.y + threadIdx.y;
+    ladrilhoB[threadIdx.y][threadIdx.x] = A[tidY * n + tidX];
 
     __syncthreads();
- 
-    for(int m=0;m<blockDim.x;m++){
-      if(ladA[m][threadIdx.x] == 1 && ladB[threadIdx.y][m] == 1)
-        A[l * n + c] = 1;
-      __syncthreads();
-    } 
- 
+
+    for(int m = 0; m < blockDim.x; m++) {
+        if (ladrilhoA[m][threadIdx.x] == 1 &&
+            ladrilhoB[threadIdx.y][m] == 1
+            ) {
+            A[i * n + j] = 1;
+        }
+        __syncthreads();
+    }
 }
 void processamentoGPU(int *A ,unsigned n){
     //Aloca espaço na CPU para o resultado
@@ -102,12 +106,18 @@ void processamentoGPU(int *A ,unsigned n){
         checkCuda( cudaEventCreate(&stop) );
         checkCuda( cudaEventRecord(start, 0) );
  
-    for(int k = 0; k < (n / NUM_THREADS_BLOCK_X); k++){
-        warshallGPU1<<<grid,bloco>>>(gA,k, n);
-    }
+        //for(int k = 0; k < (n / NUM_THREADS_BLOCK_X); k++){
+        warshallGPU1<<<grid,bloco>>>(gA,0, n);
         cudaDeviceSynchronize();
         cudaError_t error = cudaGetLastError();
         checkCuda( error );
+        warshallGPU1<<<grid,bloco>>>(gA,0, n);
+
+        cudaDeviceSynchronize();
+        error = cudaGetLastError();
+        checkCuda( error );
+        //}
+       
 
     //Obtém o erro de lançamento de kernel
     checkCuda( cudaEventRecord(stop, 0) );
