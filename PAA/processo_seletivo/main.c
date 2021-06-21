@@ -51,17 +51,17 @@ void ordem(struct Notas* x,int* count){
     }
 }
 
-int main(int argc, char** argv){	
-   int N; // qtd vagas  
+int main(){	
+	int N; // qtd vagas  
 	int K; // qtd pessoas per vaga
     int C; // numeros de candidatos que concorrem à vaga. 
 
 
-    scanf("%d",&N);
+    scanf("%d ",&N);
     float result[N];
 
     for (int i=0; i<N;i++){
-        scanf("%d %d",&K,&C);
+        scanf("%d %d ",&K,&C);
         Notas* arv = criaNota(); 
         NotasArray= (float*) malloc(C * sizeof(float));
         float notas; // notas dos candidatos; 
@@ -72,10 +72,10 @@ int main(int argc, char** argv){
         int count = 0;
         ordem(arv,&count);    
         // em questão, posição no array é = K-1, pq começa em array começa em 0.
-        //printf("%.2f\n",NotasArray[(K-1)*C]);
-        result[i]=NotasArray[(K-1)*C];
+      
+        result[i]=NotasArray[K-1];
+      
         free(NotasArray);
-        free(arv);
     }
     for (int i=0; i<N;i++){
         printf("%.2f\n",result[i]);
