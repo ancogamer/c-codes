@@ -8,12 +8,14 @@ int main(){
 
 	// sempre dividir por 2 pessoas.
     scanf("%d ",&N); 
-	int pesos[N];
+	int peso;
 	for (int i=0; i<N;i++){
-		scanf("%d ",&pesos[i]);
-		somaPeso+=pesos[i];
+		scanf("%d ",&peso);
+		somaPeso+=peso;
 	}
+
 	int mod=somaPeso%2;
+
 	printf("%d",mod);
 
 	return 0;
