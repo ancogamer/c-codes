@@ -19,18 +19,23 @@ void insereArvore(Notas** t, float num){
         (*t)->esq = NULL; /* Subárvore à esquerda é NULL */
         (*t)->dir = NULL; /* Subárvore à direita é NULL */
         (*t)->value = num; /* Armazena a informação */
-    } else {
-        if(num < (*t)->value) /* Se o número for menor então vai pra esquerda */
-        {
-            /* Percorre pela subárvore à esquerda */  
-            insereArvore(&(*t)->esq, num);
-        }
-        if(num > (*t)->value) /* Se o número for maior então vai pra direita */
-        {
-            /* Percorre pela subárvore à direita */
-            insereArvore(&(*t)->dir, num);
-        }
+        return; 
+    } 
+    // dibrando copias
+    if(num==(*t)->value){
+        return;
     }
+    if(num < (*t)->value) /* Se o número for menor então vai pra esquerda */
+    {
+        /* Percorre pela subárvore à esquerda */  
+        insereArvore(&(*t)->esq, num);
+    }
+    if(num > (*t)->value) /* Se o número for maior então vai pra direita */
+    {
+        /* Percorre pela subárvore à direita */
+        insereArvore(&(*t)->dir, num);
+    }
+    
 }
 Notas* criaNota()
 {
@@ -43,11 +48,11 @@ Notas* criaNota()
 void ordem(struct Notas* x,int* count){
     if (x!=NULL){
         ordem(x->dir,count);
+        printf("%f\n",x->value);
         NotasArray[*count]=x->value;
         *count=*count+1;
 	    free(x);
-        //printf("%f\n",x->value);
-	    ordem(x->esq,count++);
+	    ordem(x->esq,count);
     }
 }
 
@@ -55,7 +60,6 @@ int main(){
 	int N; // qtd vagas  
 	int K; // qtd pessoas per vaga
     int C; // numeros de candidatos que concorrem à vaga. 
-
 
     scanf("%d ",&N);
     float result[N];
