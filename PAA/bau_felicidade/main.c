@@ -6,9 +6,9 @@ int main(){
 	int somaPeso=0;
 	int peso;
 	
-    	scanf("%d ",&N); 
+    scanf("%d ",&N); 
 	for (int i=0; i<N;i++){
-		scanf("%d ",peso);
+		scanf("%d ",&peso);
 		somaPeso+=peso;
 	}
 	printf("%d",somaPeso%2);
