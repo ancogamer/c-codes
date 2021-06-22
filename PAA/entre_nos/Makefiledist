@@ -1,5 +1,5 @@
-CC=gcc
-
+#!/bin/bash
 main: 
-	$(CC) main.c -o app
-	./app
+	gcc main.c -o app; \
+	for file in ./testdata/*.in;  do cat $$file | ./app > "$${file%.*}"'_my_resout'.out | git diff "$${file%.*}".out "$${file%.*}"'_my_resout'.out; done;	
+		
