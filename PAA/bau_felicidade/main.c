@@ -2,20 +2,16 @@
 #include <stdlib.h>
 
 int main(){	
-	int N; // qtd vagas  
-	int somaPeso;
-
-
-	// sempre dividir por 2 pessoas.
-    scanf("%d ",&N); 
-	int pesos[N];
+	int N=0;  
+	int somaPeso=0;
+	int peso;
+	
+    	scanf("%d ",&N); 
 	for (int i=0; i<N;i++){
-		scanf("%d ",&pesos[i]);
-		somaPeso+=pesos[i];
+		scanf("%d ",peso);
+		somaPeso+=peso;
 	}
-	int mod=somaPeso%2;
-	printf("%d",mod);
-
+	printf("%d",somaPeso%2);
 	return 0;
 
 } 
