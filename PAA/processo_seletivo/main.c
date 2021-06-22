@@ -12,6 +12,7 @@ typedef struct Notas {
 float *NotasArray;
 
 void insereArvore(Notas** t, float num){
+   
     /* Essa função insere os elementos de forma recursiva */
     if(*t == NULL)
     {
@@ -20,15 +21,14 @@ void insereArvore(Notas** t, float num){
         (*t)->dir = NULL; /* Subárvore à direita é NULL */
         (*t)->value = num; /* Armazena a informação */
         return; 
-    } 
-    // dibrando copias
-    if(num==(*t)->value){
-        return;
     }
     if(num < (*t)->value) /* Se o número for menor então vai pra esquerda */
     {
         /* Percorre pela subárvore à esquerda */  
         insereArvore(&(*t)->esq, num);
+    }
+    if (num == (*t)->value){
+        insereArvore(&(*t)->dir,num);
     }
     if(num > (*t)->value) /* Se o número for maior então vai pra direita */
     {
@@ -39,19 +39,19 @@ void insereArvore(Notas** t, float num){
 }
 Notas* criaNota()
 {
-  /* Uma árvore é representada pelo endereço do nó raiz,
-     essa função cria uma árvore com nenhum elemento,
-     ou seja, cria uma árvore vazia, por isso retorna NULL. */
-  return NULL;
+    /* Uma árvore é representada pelo endereço do nó raiz,
+    essa função cria uma árvore com nenhum elemento,
+    ou seja, cria uma árvore vazia, por isso retorna NULL. */
+    return NULL;
 }
 
 void ordem(struct Notas* x,int* count){
     if (x!=NULL){
         ordem(x->dir,count);
-        printf("%f\n",x->value);
         NotasArray[*count]=x->value;
+        //printf("%.6f\n",x->value);
         *count=*count+1;
-	    free(x);
+	    //free(x);
 	    ordem(x->esq,count);
     }
 }
@@ -69,17 +69,19 @@ int main(){
         Notas* arv = criaNota(); 
         NotasArray= (float*) malloc(C * sizeof(float));
         float notas; // notas dos candidatos; 
-        for (int j=0;j<C;j++){
+        int j;
+        for (j=0;j<C;j++){
             scanf("%f",&notas);
             insereArvore(&arv,notas);
-        } 
+            
+        }
         int count = 0;
         ordem(arv,&count);    
         // em questão, posição no array é = K-1, pq começa em array começa em 0.
       
         result[i]=NotasArray[K-1];
-      
         free(NotasArray);
+        
     }
     for (int i=0; i<N;i++){
         printf("%.2f\n",result[i]);
