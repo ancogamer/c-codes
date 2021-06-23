@@ -46,10 +46,10 @@ Notas* criaNota()
     return NULL;
 }
 
-void ordem(struct Notas* x,int* count){
+void ordem(struct Notas* x,int* count,int *repeated){
     if (x!=NULL){
         ordem(x->dir,count);
-        if (*count ==28-1-x->){
+        if (*count ==28-1){
         NotasArray[*count]=x->value;
         }
         *count=*count+1;
