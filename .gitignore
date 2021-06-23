@@ -6,3 +6,9 @@ PAA/entre_nos/Makefile
 PAA/bau_felicidade/Makefile
 PAA/bau_felicidade/testdata/*
 PAA/bau_felicidade/app
+ICA/accoustic_wave/wavefield/wavefield.txt
+ICA/accoustic_wave/wave_seq
+.gitignore
+wavefield_expected.png
+ICA/accoustic_wave/plot.py
+ICA/accoustic_wave/wave_cuda
