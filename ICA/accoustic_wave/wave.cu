@@ -17,13 +17,7 @@
 __constant__ float dxSquared = DX * DX;
 __constant__ float dySquared = DY * DY;
 __constant__ float dtSquared = DT * DT;
-/*
-    cudaMemcpyToSymbol(d_dxSquared, &dxSquared, sizeof(float));
-    cudaMemcpyToSymbol(d_dySquared, &dySquared, sizeof(float));
-    cudaMemcpyToSymbol(d_dtSquared, &dtSquared, sizeof(float));
-    cudaMemcpyToSymbol(d_rows, &rows, sizeof(int));
-    cudaMemcpyToSymbol(d_cols, &cols, sizeof(int));
-*/
+
 inline cudaError_t checkCuda(cudaError_t result)
 {
   if (result != cudaSuccess) {
@@ -61,70 +55,40 @@ void save_grid(int rows, int cols, float *matrix){
     system("python3 plot.py");
 }
 
-void procCPU(int iterations, int rows, int cols,float *prev_base,float * vel_base,float *next_base){
-    float *swap;
-    for(int n = 0; n < iterations; n++) {
-        for(int i = HALF_LENGTH; i < rows - HALF_LENGTH; i++) {
-            for(int j = HALF_LENGTH; j < cols - HALF_LENGTH; j++) {
-                // index of the current point in the grid
-                int current = i * cols + j;
-                
-                //neighbors in the horizontal direction
-                float value = (prev_base[current + 1] - 2.0 * prev_base[current] + prev_base[current - 1]) / dxSquared;
-                
-                //neighbors in the vertical direction
-                value += (prev_base[current + cols] - 2.0 * prev_base[current] + prev_base[current - cols]) / dySquared;
-                
-                value *= dtSquared * vel_base[current];
-                
-                next_base[current] = 2.0 * prev_base[current] - next_base[current] + value;
-            }
-        }
 
-        // swap arrays for next iteration
-        swap = next_base;
-        next_base = prev_base;
-        prev_base = swap;
-    }
-}
-
-
-__global__ void wavekernel(float *prev_base,float * vel_base,float *next_base,const float dxSquared,const float dySquared,const float dtSquared ){    
-    float dois=2.0; 
+__global__ void wavekernel(float *prev_baseGPU,float * vel_baseGPU,float *next_baseGPU,const int qtd_cols,const int qtd_rows,const float dxSquared,const float dySquared,const float dtSquared ){    
     int  c = blockIdx.x * blockDim.x + threadIdx.x + HALF_LENGTH;
     int  r = blockIdx.y * blockDim.y + threadIdx.y + HALF_LENGTH;
     // passar quantidade de linhas e coluna
-    int current = row * d_cols + col;
-    int idx = r * c;
-
-    if (c < d_cols - HALF_LENGTH && r < d_rows - HALF_LENGTH) {
-        float value = (prev_base[idx + 1] - dois * prev_base[idx] + prev_base[idx - 1]) / dxSquared;
-        value += (prev_base[idx + c] - dois * prev_base[idx] + prev_base[idx - c]) / dySquared;
-        value *= dtSquared * vel_base[idx];
-        next_base[idx] = dois * prev_base[idx] - next_base[idx] + value;
+    int idx = r * qtd_cols + c;
+    if (c < qtd_cols - HALF_LENGTH && r < qtd_rows - HALF_LENGTH) {
+        printf("ID %d\n",idx);
+        printf("prevbase %f \n",prev_baseGPU[idx]);
+       float value = (prev_baseGPU[idx + 1] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - 1]) / dxSquared;
+        value += (prev_baseGPU[idx + qtd_cols] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - qtd_cols]) / dySquared;      
+        value *= dtSquared * vel_baseGPU[idx];      
+        next_baseGPU[idx] = 2.0 * prev_baseGPU[idx] - next_baseGPU[idx] + value;
     }
    
 }
  
-void procGPU(int iterations,unsigned long matrizSize, int rows, int cols,float *prev_base,float * vel_base,float *next_base){
+void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_base,float *next_base){
     float *prev_baseGPU;
     float *next_baseGPU;
     float *vel_baseGPU;
     float *swapGPU;
 
-    cudaMalloc( (void**) &prev_baseGPU,matrizSize);
-    cudaMalloc( (void**) &next_baseGPU,matrizSize);
-    cudaMalloc( (void**) &vel_baseGPU,matrizSize);
+    cudaMalloc( (void**) &prev_baseGPU,rows * cols *sizeof(float));
+    cudaMalloc( (void**) &next_baseGPU,rows * cols *sizeof(float));
+    cudaMalloc( (void**) &vel_baseGPU, rows * cols *sizeof(float));
 
     //-------------------------------------
-    cudaMemcpy(prev_baseGPU, prev_base,matrizSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(next_baseGPU, next_base,matrizSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(vel_baseGPU, vel_base,matrizSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(prev_baseGPU, prev_base,rows * cols *sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(next_baseGPU, next_base,rows * cols *sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(vel_baseGPU, vel_base,rows * cols *sizeof(float), cudaMemcpyHostToDevice);
  
     dim3 bloco = dim3(NUM_THREADS_BLOCK_X, NUM_THREADS_BLOCK_Y);
-    //dim3 grid = dim3(ceil (matrizSize/ (float) NUM_THREADS_BLOCK_X), ceil (matrizSize/ (float) NUM_THREADS_BLOCK_Y));
-
-    dim3 grid = dim3(ceil (matrizSize/ (float) NUM_THREADS_BLOCK_X), ceil (matrizSize/ (float) NUM_THREADS_BLOCK_Y));
+    dim3 grid = dim3(ceil ((float)rows*cols/ (float) NUM_THREADS_BLOCK_X), ceil ((float)rows*cols/ (float) NUM_THREADS_BLOCK_Y));
 
 
     cudaEvent_t start, stop;
@@ -133,13 +97,14 @@ void procGPU(int iterations,unsigned long matrizSize, int rows, int cols,float *
         checkCuda( cudaEventCreate(&stop) );
         checkCuda( cudaEventRecord(start, 0) );
 
+ 
+
     for(int n = 0; n < iterations; n++) {
-        wavekernel<<<grid,bloco>>>(prev_baseGPU,vel_baseGPU,next_baseGPU,dxSquared,dySquared,  dtSquared );
+        wavekernel<<<1,1>>>(prev_baseGPU,vel_baseGPU,next_baseGPU,rows,cols,dxSquared,dySquared,dtSquared);
         swapGPU = next_baseGPU;
         next_baseGPU = prev_baseGPU;
         prev_baseGPU = swapGPU;
     }
-
     cudaDeviceSynchronize();
     cudaError_t error = cudaGetLastError();
     checkCuda( error );
@@ -150,13 +115,10 @@ void procGPU(int iterations,unsigned long matrizSize, int rows, int cols,float *
     checkCuda( cudaEventElapsedTime(&gpu_time, start, stop) );
 
     //-------------------------------------------------------------
-    cudaMemcpy(next_base, next_baseGPU, matrizSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(next_base, next_baseGPU, rows * cols *sizeof(float), cudaMemcpyDeviceToHost);
     //-------------------------------------------------------------
     // limpando o que não vai ser mais usado
     cudaFree(prev_baseGPU);cudaFree(next_baseGPU);cudaFree(vel_baseGPU);
-    //-------------------------------------------------------------
-    // limpando o que não vai ser mais usado
-    free(prev_base);free(vel_base);
     //-------------------------------------------------------------
     //Imprime o resultado
         printf("Tempo de Execução na GPU: %.4f ms ", gpu_time);
@@ -207,8 +169,7 @@ int main(int argc, char* argv[]) {
 
     printf("Grid Sizes: %d x %d\n", rows, cols);
     printf("Iterations: %d\n", iterations);
-    unsigned long matrizSize= rows * cols * sizeof(float);
-    printf("MATRIZ SIZE %llu\n",matrizSize);
+    printf("MATRIZ SIZE %llu\n",rows * cols *sizeof(float));
     // ************* BEGIN INITIALIZATION *************
     printf("Initializing ... \n");
     // define source wavelet
@@ -230,27 +191,13 @@ int main(int argc, char* argv[]) {
     // add a source to initial wavefield as an initial condition
     for(int s = 11; s >= 0; s--){
         for(int i = rows / 2 - s; i < rows / 2 + s; i++){
-
             int offset = i * cols;
-
             for(int j = cols / 2 - s; j < cols / 2 + s; j++)
                 prev_base[offset + j] = wavelet[s];
         }
     }
-
     // ************** END INITIALIZATION **************
-    
-    float *prev_base1 = (float*) malloc(rows * cols * sizeof(float));
-    float *next_base1 = (float*) malloc(rows * cols * sizeof(float));
-    float *vel_base1 =(float*) malloc(rows * cols * sizeof(float));
-
-    memcpy(prev_base1, prev_base, rows * cols * sizeof(float));
-    memcpy(next_base1, next_base, rows * cols * sizeof(float));
-    memcpy(vel_base1, vel_base,   rows * cols * sizeof(float));
-
     printf("Computing wavefield ... \n");
-
-    
     // variable to measure execution time
     struct timeval time_start;
     struct timeval time_end;
@@ -258,26 +205,19 @@ int main(int argc, char* argv[]) {
     // get the start time
     gettimeofday(&time_start, NULL);
     // wavefield modeling
-    procCPU(iterations,rows,cols,prev_base,vel_base, next_base);
-
-    procGPU(iterations,matrizSize,rows,cols,prev_base1,vel_base1, next_base1);
+    procGPU(iterations,rows,cols,prev_base,vel_base, next_base);
     
     // get the end time
     gettimeofday(&time_end, NULL);
 
     double exec_time = (double) (time_end.tv_sec - time_start.tv_sec) + (double) (time_end.tv_usec - time_start.tv_usec) / 1000000.0;
-
     save_grid(rows, cols, next_base);
-    save_grid(rows, cols, next_base1);
-    
     printf("Iterations completed in %f seconds \n", exec_time);
 
     free(prev_base);
     free(next_base);
     free(vel_base);
-    free(next_base1);
-
-
 
     return 0;
 }
+
