@@ -14,10 +14,17 @@
 #define NUM_THREADS_BLOCK_Y 32
  
 
-const float dxSquaredGPU = DX * DX;
-const float dySquaredGPU = DY * DY;
-const float dtSquaredGPU = DT * DT;
-
+__constant__ float dxSquaredGPU = DX * DX;
+__constant__ float dySquaredGPU = DY * DY;
+__constant__ float dtSquaredGPU = DT * DT;
+//========================================================================
+/*
+__device__ __constant__ float dxSquaredGPU;
+__device__ __constant__ float dySquaredGPU;
+__device__ __constant__ float dtSquaredGPU;
+__constant__ int qtd_rows;
+__constant__ int qtd_cols;
+*/ 
 //========================================================================
 // https://stackoverflow.com/questions/19646256/cudamemcpytosymbol-use-details
 #define CUDA_CHECK_RETURN(value) {                                      \
@@ -58,30 +65,31 @@ void save_grid(int rows, int cols, float *matrix){
 }
 //========================================================================
 
-__global__ void wavekernel(float *prev_baseGPU,float * vel_baseGPU,float *next_baseGPU, int qtd_cols, 
-int qtd_rows )
+__global__ void wavekernel(float *prev_baseGPU,float * vel_baseGPU,float *next_baseGPU,int qtd_rows,int qtd_cols)
 {    
     int  c = blockIdx.x * blockDim.x + threadIdx.x + HALF_LENGTH;
     int  r = blockIdx.y * blockDim.y + threadIdx.y + HALF_LENGTH;
     // passar quantidade de linhas e coluna
     int idx = r * qtd_cols + c;
+    int doisPrevBaseIdx = 2.0 * prev_baseGPU[idx];
     if (c < qtd_cols - HALF_LENGTH && r < qtd_rows - HALF_LENGTH) {
-       float value = (prev_baseGPU[idx + 1] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - 1]) / dxSquaredGPU;
-        value += (prev_baseGPU[idx + qtd_cols] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - qtd_cols]) / dySquaredGPU;      
+       float value = (prev_baseGPU[idx + 1] - doisPrevBaseIdx + prev_baseGPU[idx - 1]) / dxSquaredGPU;
+        value += (prev_baseGPU[idx + qtd_cols] - doisPrevBaseIdx + prev_baseGPU[idx - qtd_cols]) / dySquaredGPU;      
         value *= dtSquaredGPU * vel_baseGPU[idx];      
-        next_baseGPU[idx] = 2.0 * prev_baseGPU[idx] - next_baseGPU[idx] + value;
+        next_baseGPU[idx] = doisPrevBaseIdx - next_baseGPU[idx] + value;
     }
    
 }
  
-void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_base,float *next_base){
-
-    //-------------------------------------
-    //CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dxSquaredGPU, &dxSquared, sizeof(dxSquared),cudaMemcpyHostToDevice));
-    //CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dySquaredGPU, &dySquared, sizeof(dySquared),cudaMemcpyHostToDevice));
-
-   // CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dtSquaredGPU, &dtSquared, sizeof(dtSquared),cudaMemcpyHostToDevice));
-    //-------------------------------------
+void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_base,float *next_base){    
+/* 
+    CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dxSquaredGPU, &dxSquared, 0,cudaMemcpyHostToDevice));
+    CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dySquaredGPU, &dySquared, 0,cudaMemcpyHostToDevice));
+    CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dtSquaredGPU, &dtSquared, 0,cudaMemcpyHostToDevice));
+    CUDA_CHECK_RETURN(cudaMemcpyToSymbol(qtd_rows, &rows,0,cudaMemcpyHostToDevice));
+    CUDA_CHECK_RETURN(cudaMemcpyToSymbol(qtd_cols, &cols,0,cudaMemcpyHostToDevice));
+*/    
+    
     
     float *prev_baseGPU;
     float *next_baseGPU;
@@ -97,7 +105,7 @@ void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_bas
     cudaMemcpy(vel_baseGPU,  vel_base, rows * cols *sizeof(float), cudaMemcpyHostToDevice);
  
     dim3 bloco = dim3(NUM_THREADS_BLOCK_X, NUM_THREADS_BLOCK_Y);
-    dim3 grid = dim3(ceil ((float)rows*cols/ (float) NUM_THREADS_BLOCK_X), ceil ((float)rows*cols/ (float) NUM_THREADS_BLOCK_Y));
+    dim3 grid = dim3(ceil ((float)rows*cols*sizeof(float)/ (float) NUM_THREADS_BLOCK_X), ceil ((float)rows*cols*sizeof(float)/ (float) NUM_THREADS_BLOCK_Y));
 
     //--- cuda time
     cudaEvent_t start, stop;
@@ -107,6 +115,9 @@ void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_bas
         CUDA_CHECK_RETURN( cudaEventRecord(start, 0) );
     //========================================
     float *swapGPU;
+    printf("GRID X%u\n",grid.x);
+    printf("GRID Y%u\n",grid.y);  
+    
     for(int n = 0; n < iterations; n++) {
         wavekernel<<<grid,bloco>>>(prev_baseGPU,vel_baseGPU,next_baseGPU,rows,cols);
         swapGPU = next_baseGPU;
