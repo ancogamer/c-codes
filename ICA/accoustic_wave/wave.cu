@@ -14,18 +14,20 @@
 #define NUM_THREADS_BLOCK_Y 32
  
 
-__constant__ float dxSquared = DX * DX;
-__constant__ float dySquared = DY * DY;
-__constant__ float dtSquared = DT * DT;
+const float dxSquaredGPU = DX * DX;
+const float dySquaredGPU = DY * DY;
+const float dtSquaredGPU = DT * DT;
 
-inline cudaError_t checkCuda(cudaError_t result)
-{
-  if (result != cudaSuccess) {
-    fprintf(stderr, "CUDA Runtime Error: %s\n", cudaGetErrorString(result));
-    assert(result == cudaSuccess);
-  }
-  return result;
-}
+//========================================================================
+// https://stackoverflow.com/questions/19646256/cudamemcpytosymbol-use-details
+#define CUDA_CHECK_RETURN(value) {                                      \
+    cudaError_t _m_cudaStat = value;                                    \
+    if (_m_cudaStat != cudaSuccess) {                                   \
+        fprintf(stderr, "Error %s at line %d in file %s\n",             \
+                cudaGetErrorString(_m_cudaStat), __LINE__, __FILE__);   \
+    exit(1);                                                            \
+} }
+//========================================================================
 /*
  * save the matrix on a file.txt
  */
@@ -54,30 +56,37 @@ void save_grid(int rows, int cols, float *matrix){
     
     system("python3 plot.py");
 }
+//========================================================================
 
-
-__global__ void wavekernel(float *prev_baseGPU,float * vel_baseGPU,float *next_baseGPU,const int qtd_cols,const int qtd_rows,const float dxSquared,const float dySquared,const float dtSquared ){    
+__global__ void wavekernel(float *prev_baseGPU,float * vel_baseGPU,float *next_baseGPU, int qtd_cols, 
+int qtd_rows )
+{    
     int  c = blockIdx.x * blockDim.x + threadIdx.x + HALF_LENGTH;
     int  r = blockIdx.y * blockDim.y + threadIdx.y + HALF_LENGTH;
     // passar quantidade de linhas e coluna
     int idx = r * qtd_cols + c;
     if (c < qtd_cols - HALF_LENGTH && r < qtd_rows - HALF_LENGTH) {
-        printf("ID %d\n",idx);
-        printf("prevbase %f \n",prev_baseGPU[idx]);
-       float value = (prev_baseGPU[idx + 1] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - 1]) / dxSquared;
-        value += (prev_baseGPU[idx + qtd_cols] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - qtd_cols]) / dySquared;      
-        value *= dtSquared * vel_baseGPU[idx];      
+       float value = (prev_baseGPU[idx + 1] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - 1]) / dxSquaredGPU;
+        value += (prev_baseGPU[idx + qtd_cols] - 2.0 * prev_baseGPU[idx] + prev_baseGPU[idx - qtd_cols]) / dySquaredGPU;      
+        value *= dtSquaredGPU * vel_baseGPU[idx];      
         next_baseGPU[idx] = 2.0 * prev_baseGPU[idx] - next_baseGPU[idx] + value;
     }
    
 }
  
 void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_base,float *next_base){
+
+    //-------------------------------------
+    //CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dxSquaredGPU, &dxSquared, sizeof(dxSquared),cudaMemcpyHostToDevice));
+    //CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dySquaredGPU, &dySquared, sizeof(dySquared),cudaMemcpyHostToDevice));
+
+   // CUDA_CHECK_RETURN(cudaMemcpyToSymbol(dtSquaredGPU, &dtSquared, sizeof(dtSquared),cudaMemcpyHostToDevice));
+    //-------------------------------------
+    
     float *prev_baseGPU;
     float *next_baseGPU;
     float *vel_baseGPU;
-    float *swapGPU;
-
+  
     cudaMalloc( (void**) &prev_baseGPU,rows * cols *sizeof(float));
     cudaMalloc( (void**) &next_baseGPU,rows * cols *sizeof(float));
     cudaMalloc( (void**) &vel_baseGPU, rows * cols *sizeof(float));
@@ -85,34 +94,34 @@ void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_bas
     //-------------------------------------
     cudaMemcpy(prev_baseGPU, prev_base,rows * cols *sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(next_baseGPU, next_base,rows * cols *sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(vel_baseGPU, vel_base,rows * cols *sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(vel_baseGPU,  vel_base, rows * cols *sizeof(float), cudaMemcpyHostToDevice);
  
     dim3 bloco = dim3(NUM_THREADS_BLOCK_X, NUM_THREADS_BLOCK_Y);
     dim3 grid = dim3(ceil ((float)rows*cols/ (float) NUM_THREADS_BLOCK_X), ceil ((float)rows*cols/ (float) NUM_THREADS_BLOCK_Y));
 
-
+    //--- cuda time
     cudaEvent_t start, stop;
     float gpu_time = 0.0f;
-        checkCuda( cudaEventCreate(&start) );
-        checkCuda( cudaEventCreate(&stop) );
-        checkCuda( cudaEventRecord(start, 0) );
-
- 
-
+        CUDA_CHECK_RETURN( cudaEventCreate(&start) );
+        CUDA_CHECK_RETURN( cudaEventCreate(&stop) );
+        CUDA_CHECK_RETURN( cudaEventRecord(start, 0) );
+    //========================================
+    float *swapGPU;
     for(int n = 0; n < iterations; n++) {
-        wavekernel<<<1,1>>>(prev_baseGPU,vel_baseGPU,next_baseGPU,rows,cols,dxSquared,dySquared,dtSquared);
+        wavekernel<<<grid,bloco>>>(prev_baseGPU,vel_baseGPU,next_baseGPU,rows,cols);
         swapGPU = next_baseGPU;
         next_baseGPU = prev_baseGPU;
         prev_baseGPU = swapGPU;
     }
+
     cudaDeviceSynchronize();
     cudaError_t error = cudaGetLastError();
-    checkCuda( error );
-
+    CUDA_CHECK_RETURN( error );
+    
     //Obtém o erro de lançamento de kernel
-    checkCuda( cudaEventRecord(stop, 0) );
-    checkCuda( cudaEventSynchronize(stop) );
-    checkCuda( cudaEventElapsedTime(&gpu_time, start, stop) );
+    CUDA_CHECK_RETURN( cudaEventRecord(stop, 0) );
+    CUDA_CHECK_RETURN( cudaEventSynchronize(stop) );
+    CUDA_CHECK_RETURN( cudaEventElapsedTime(&gpu_time, start, stop) );
 
     //-------------------------------------------------------------
     cudaMemcpy(next_base, next_baseGPU, rows * cols *sizeof(float), cudaMemcpyDeviceToHost);
@@ -138,15 +147,15 @@ int main(int argc, char* argv[]) {
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop,0);
 
-    printf("Modelo Processador%s",system("cat /proc/cpuinfo|grep 'model name'|head -1"));
+    system("echo 'Modelo Processador: '|cat /proc/cpuinfo|grep 'model name'|head -1");
     printf("Modelo do Device: %s\n",prop.name);
     printf("Número de SMs: %d\n",prop.multiProcessorCount);
     printf("Número de Regs por SM: %d K\n",prop.regsPerMultiprocessor >> 10);
     printf("Número de Regs por Bloco: %d K\n",prop.regsPerBlock  >> 10);
-    printf("Memória compartilhada por SM: %d KB\n",prop.sharedMemPerMultiprocessor >> 10);
-    printf("Memória compartilhada por Bloco: %d KB\n",prop.sharedMemPerBlock  >> 10);
-    printf("Memória Global: %d GB\n",prop.totalGlobalMem  >> 10  >> 10  >> 10 );
-    printf("Memória Constante: %d KB\n",prop.totalConstMem  >> 10);
+    printf("Memória compartilhada por SM: %lu KB\n",prop.sharedMemPerMultiprocessor >> 10);
+    printf("Memória compartilhada por Bloco: %lu KB\n",prop.sharedMemPerBlock  >> 10);
+    printf("Memória Global: %lu GB\n",prop.totalGlobalMem  >> 10  >> 10  >> 10 );
+    printf("Memória Constante: %lu KB\n",prop.totalConstMem  >> 10);
 
     // number of rows of the grid
     int rows = atoi(argv[1]);
@@ -169,7 +178,7 @@ int main(int argc, char* argv[]) {
 
     printf("Grid Sizes: %d x %d\n", rows, cols);
     printf("Iterations: %d\n", iterations);
-    printf("MATRIZ SIZE %llu\n",rows * cols *sizeof(float));
+    printf("MATRIZ SIZE %lu\n",rows * cols *sizeof(float));
     // ************* BEGIN INITIALIZATION *************
     printf("Initializing ... \n");
     // define source wavelet

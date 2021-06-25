@@ -12,3 +12,5 @@ ICA/accoustic_wave/wave_seq
 wavefield_expected.png
 ICA/accoustic_wave/plot.py
 ICA/accoustic_wave/wave_cuda
+wavefield_expected1.png
+.gitignore
