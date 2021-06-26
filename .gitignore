@@ -1,3 +1,10 @@
+#ICA
+ICA/accoustic_wave/wavefield/
+ICA/accoustic_wave/wave_seq
+ICA/accoustic_wave/wave_cuda
+ICA/accoustic_wave/plots/
+ICA/accoustic_wave/terminal_output/
+#PAA
 PAA/processo_seletivo/app
 PAA/processo_seletivo/testdata/*
 PAA/processo_seletivo/Makefile
@@ -6,10 +13,4 @@ PAA/entre_nos/Makefile
 PAA/bau_felicidade/Makefile
 PAA/bau_felicidade/testdata/*
 PAA/bau_felicidade/app
-ICA/accoustic_wave/wavefield/wavefield.txt
-ICA/accoustic_wave/wave_seq
-ICA/accoustic_wave/plot.py
-ICA/accoustic_wave/wave_cuda
-.gitignore
-expected/
-ICA/accoustic_wave/plots/wavefield.png
+
