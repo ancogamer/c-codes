@@ -8,10 +8,8 @@ PAA/bau_felicidade/testdata/*
 PAA/bau_felicidade/app
 ICA/accoustic_wave/wavefield/wavefield.txt
 ICA/accoustic_wave/wave_seq
-.gitignore
-wavefield_expected.png
 ICA/accoustic_wave/plot.py
 ICA/accoustic_wave/wave_cuda
-wavefield_expected1.png
 .gitignore
+expected/
 ICA/accoustic_wave/plots/wavefield.png
