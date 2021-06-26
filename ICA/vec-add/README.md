@@ -1,5 +1,2 @@
-# Vector Addition
-
-Given two vectors A and B with same size N, the program adds the vectors and stores the result in a vector C:
-
-`C[i] = A[i] + B[i]`
+feito com base em : 
+https://github.com/HPCSys-Lab/HPC-101/tree/main/examples/vec-add
