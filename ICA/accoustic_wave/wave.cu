@@ -60,10 +60,10 @@ __global__ void wavekernel(float *prev_baseGPU,float * vel_baseGPU,float *next_b
 {    
     int  c = blockIdx.x * blockDim.x + threadIdx.x + HALF_LENGTH;
     int  r = blockIdx.y * blockDim.y + threadIdx.y + HALF_LENGTH;
-    int idx = r * qtd_cols + c;
-    int doisPrevBaseIdx = 2.0 * prev_baseGPU[idx];
     if (c < qtd_cols - HALF_LENGTH && r < qtd_rows - HALF_LENGTH) {
-       float value = (prev_baseGPU[idx + 1] - doisPrevBaseIdx + prev_baseGPU[idx - 1]) / dxSquaredGPU;
+        int idx = r * qtd_cols + c;
+        int doisPrevBaseIdx = 2.0 * prev_baseGPU[idx];
+        float value = (prev_baseGPU[idx + 1] - doisPrevBaseIdx + prev_baseGPU[idx - 1]) / dxSquaredGPU;
         value += (prev_baseGPU[idx + qtd_cols] - doisPrevBaseIdx + prev_baseGPU[idx - qtd_cols]) / dySquaredGPU;      
         value *= dtSquaredGPU * vel_baseGPU[idx];      
         next_baseGPU[idx] = doisPrevBaseIdx - next_baseGPU[idx] + value;
