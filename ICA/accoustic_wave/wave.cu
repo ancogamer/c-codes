@@ -79,7 +79,7 @@ void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_bas
     CUDA_CHECK_RETURN(cudaMemcpyToSymbol(qtd_rows, &rows,0,cudaMemcpyHostToDevice));
     CUDA_CHECK_RETURN(cudaMemcpyToSymbol(qtd_cols, &cols,0,cudaMemcpyHostToDevice));
 */    
-    
+    printf("\ndasda%lu\n",sizeof(float));
     //--------------------------------------------------------------------------------------
     float *prev_baseGPU;
     float *next_baseGPU;
@@ -94,7 +94,7 @@ void procGPU(int iterations, int rows, int cols,float *prev_base,float * vel_bas
     cudaMemcpy(vel_baseGPU,  vel_base, rows * cols *sizeof(float), cudaMemcpyHostToDevice);
     //--------------------------------------------------------------------------------------
     dim3 bloco = dim3(NUM_THREADS_BLOCK_X, NUM_THREADS_BLOCK_Y);
-    dim3 grid = dim3(ceil ((float)bloco.x*sizeof(float)/ (float) NUM_THREADS_BLOCK_X), ceil ((float)bloco.y*sizeof(float)/ (float) NUM_THREADS_BLOCK_Y));
+    dim3 grid = dim3(ceil ((float)cols*sizeof(float)/ (float) NUM_THREADS_BLOCK_X), ceil ((float)cols*sizeof(float)/ (float) NUM_THREADS_BLOCK_Y));
     //--------------------------------------------------------------------------------------
     printf("GRID X%u\n",grid.x);
     printf("GRID Y%u\n",grid.y);  
