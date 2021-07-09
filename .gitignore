@@ -1,3 +1,4 @@
+
 #ICA
 ICA/accoustic_wave/wavefield/
 ICA/accoustic_wave/wave_seq
@@ -14,3 +15,6 @@ PAA/bau_felicidade/Makefile
 PAA/bau_felicidade/testdata/*
 PAA/bau_felicidade/app
 
+PAA/entre_nos/app
+PAA/processo_seletivo/debug4.txt
+PAA/processo_seletivo/debug5.txt
